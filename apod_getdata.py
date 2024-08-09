@@ -24,4 +24,11 @@ end_date = "2024-08-05"
 
 data = get_data(api_key, start_date, end_date)
 
-print(json.dumps(data, indent=2))
+#print(json.dumps(data, indent=2))
+
+# 將資料寫入 JSON 檔案
+file_name = f'apod_data_{start_date}_{end_date}.json'
+with open(file_name, 'w') as json_file:
+    json.dump(data, json_file, indent=2)
+
+print(f"資料已儲存為 {file_name}")
