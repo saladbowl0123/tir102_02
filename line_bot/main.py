@@ -53,7 +53,7 @@ configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 
 @functions_framework.http
 @app.route("/callback", methods=['POST'])
-def callback():
+def callback(request):
     # get X-Line-Signature header value
     signature = request.headers['X-Line-Signature']
 
