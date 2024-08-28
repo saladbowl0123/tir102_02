@@ -36,11 +36,15 @@ from linebot.v3.messaging import (
     ApiClient,
     MessagingApi,
     ReplyMessageRequest,
-    TextMessage
+    TextMessage,
+    ImageMessage,
+    QuickReply,
+    QuickReplyItem,
+    MessageAction,
 )
 from linebot.v3.webhooks import (
     MessageEvent,
-    TextMessageContent
+    TextMessageContent,
 )
 
 app = Flask(__name__)
@@ -73,12 +77,61 @@ def callback(request):
 @functions_framework.http
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
+    # user_input = event.message.text
+
+    # image_url = 'https://apod.nasa.gov/apod/image/2408/EnceladusStripes_Cassini_3237.jpg'
+    # video_url = 'https://www.youtube.com/watch?v=CwrvN0Q9_Sg'
+
+    constellations = [
+        '牡羊座',
+        '金牛座',
+        '雙子座',
+        '巨蟹座',
+        '獅子座',
+        '處女座',
+        '天秤座',
+        '天蠍座',
+        '射手座',
+        '摩羯座',
+        '水瓶座',
+        '雙魚座',
+    ]
+
+    # text_message = TextMessage(text=user_input)
+    # text_message = TextMessage(text=video_url)
+
+    # image_message = ImageMessage(
+    #     original_content_url=image_url,
+    #     preview_image_url=image_url,
+    # )
+
+    constellation_buttons = TextMessage(
+        text='星座',
+        quick_reply=QuickReply(
+            items=[
+                QuickReplyItem(
+                    action=MessageAction(
+                        label=c,
+                        text=c,
+                    )
+                )
+                for c in constellations
+            ]
+        )
+    )
+
+    messages = [
+        # text_message,
+        # image_message,
+        constellation_buttons,
+    ]
+    
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message_with_http_info(
             ReplyMessageRequest(
                 reply_token=event.reply_token,
-                messages=[TextMessage(text=event.message.text)]
+                messages=messages,
             )
         )
 
