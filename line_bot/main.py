@@ -24,6 +24,7 @@ Entry point: callback
 
 import functions_framework
 from flask import Flask, request, abort
+import extend_url
 
 from linebot.v3 import (
     WebhookHandler
@@ -79,51 +80,57 @@ def callback(request):
 def handle_message(event):
     # user_input = event.message.text
 
-    # image_url = 'https://apod.nasa.gov/apod/image/2408/EnceladusStripes_Cassini_3237.jpg'
+    bucket_name = 'tir102_apod'
+    blob_name = '2024-08-25.jpg'
+    credentials = extend_url.credentials
+
+    image_url = extend_url.generate_signed_url(bucket_name, blob_name, credentials)
+
     # video_url = 'https://www.youtube.com/watch?v=CwrvN0Q9_Sg'
 
-    constellations = [
-        '牡羊座',
-        '金牛座',
-        '雙子座',
-        '巨蟹座',
-        '獅子座',
-        '處女座',
-        '天秤座',
-        '天蠍座',
-        '射手座',
-        '摩羯座',
-        '水瓶座',
-        '雙魚座',
-    ]
+    # constellations = [
+    #     '牡羊座',
+    #     '金牛座',
+    #     '雙子座',
+    #     '巨蟹座',
+    #     '獅子座',
+    #     '處女座',
+    #     '天秤座',
+    #     '天蠍座',
+    #     '射手座',
+    #     '摩羯座',
+    #     '水瓶座',
+    #     '雙魚座',
+    # ]
 
     # text_message = TextMessage(text=user_input)
+    # text_message = TextMessage(text=image_url)
     # text_message = TextMessage(text=video_url)
 
-    # image_message = ImageMessage(
-    #     original_content_url=image_url,
-    #     preview_image_url=image_url,
-    # )
-
-    constellation_buttons = TextMessage(
-        text='星座',
-        quick_reply=QuickReply(
-            items=[
-                QuickReplyItem(
-                    action=MessageAction(
-                        label=c,
-                        text=c,
-                    )
-                )
-                for c in constellations
-            ]
-        )
+    image_message = ImageMessage(
+        original_content_url=image_url,
+        preview_image_url=image_url,
     )
+
+    # constellation_buttons = TextMessage(
+    #     text='星座',
+    #     quick_reply=QuickReply(
+    #         items=[
+    #             QuickReplyItem(
+    #                 action=MessageAction(
+    #                     label=c,
+    #                     text=c,
+    #                 )
+    #             )
+    #             for c in constellations
+    #         ]
+    #     )
+    # )
 
     messages = [
         # text_message,
-        # image_message,
-        constellation_buttons,
+        image_message,
+        # constellation_buttons,
     ]
     
     with ApiClient(configuration) as api_client:
