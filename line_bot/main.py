@@ -25,6 +25,8 @@ Entry point: callback
 import functions_framework
 from flask import Flask, request, abort
 import extend_url
+import os
+import json
 
 from linebot.v3 import (
     WebhookHandler
@@ -50,11 +52,14 @@ from linebot.v3.webhooks import (
 
 app = Flask(__name__)
 
-CHANNEL_ACCESS_TOKEN = ''
-CHANNEL_SECRET = ''
+with open(os.path.join(os.path.dirname(__file__), 'line_channel_details.json')) as f:
+    line_channel_details = json.load(f)
 
-handler = WebhookHandler(CHANNEL_SECRET)
-configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
+    channel_access_token = line_channel_details['channel_access_token']
+    channel_secret = line_channel_details['channel_secret']
+
+configuration = Configuration(access_token=channel_access_token)
+handler = WebhookHandler(channel_secret)
 
 @functions_framework.http
 @app.route("/callback", methods=['POST'])
