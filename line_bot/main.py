@@ -25,6 +25,7 @@ Entry point: callback
 import functions_framework
 from flask import Flask, request, abort
 import extend_url
+import select_from_bigquery
 import os
 import json
 
@@ -85,11 +86,11 @@ def callback(request):
 def handle_message(event):
     # user_input = event.message.text
 
-    bucket_name = 'tir102_apod'
-    blob_name = '2024-08-25.jpg'
-    credentials = extend_url.credentials
+    # bucket_name = 'tir102_apod'
+    # blob_name = '2024-08-25.jpg'
+    # credentials = extend_url.credentials
 
-    image_url = extend_url.generate_signed_url(bucket_name, blob_name, credentials)
+    # image_url = extend_url.generate_signed_url(bucket_name, blob_name, credentials)
 
     # video_url = 'https://www.youtube.com/watch?v=CwrvN0Q9_Sg'
 
@@ -108,14 +109,21 @@ def handle_message(event):
     #     '雙魚座',
     # ]
 
+    query = """
+        SELECT *
+        FROM `my-project-tir102-bigquery.tir102_apod.tags`
+        ORDER BY `date`
+        LIMIT 10;
+    """
+
     # text_message = TextMessage(text=user_input)
-    # text_message = TextMessage(text=image_url)
+    text_message = TextMessage(text=str(select_from_bigquery.query(query)))
     # text_message = TextMessage(text=video_url)
 
-    image_message = ImageMessage(
-        original_content_url=image_url,
-        preview_image_url=image_url,
-    )
+    # image_message = ImageMessage(
+    #     original_content_url=image_url,
+    #     preview_image_url=image_url,
+    # )
 
     # constellation_buttons = TextMessage(
     #     text='星座',
@@ -133,8 +141,8 @@ def handle_message(event):
     # )
 
     messages = [
-        # text_message,
-        image_message,
+        text_message,
+        # image_message,
         # constellation_buttons,
     ]
     
