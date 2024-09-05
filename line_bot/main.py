@@ -24,6 +24,7 @@ Entry point: callback
 
 import functions_framework
 from flask import Flask, request, abort
+import check_date
 import extend_url
 import select_from_bigquery
 import os
@@ -81,18 +82,20 @@ def callback(request):
 
     return 'OK'
 
-@functions_framework.http
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
-    # user_input = event.message.text
+    INVALID_DATE = '日期無效 Invalid date'
+    DATE_USAGE = '日期用法 Date usage: `yyyy-mm-dd`'
+    DATE_OUT_OF_RANGE = '以前無資料 No data before'
+    NO_DATA_TODAY = '尚未獲得今日資料 Data not yet available for today'
+    NO_DATA_AT_DATE = '無資料 No data at'
 
-    # bucket_name = 'tir102_apod'
-    # blob_name = '2024-08-25.jpg'
-    # credentials = extend_url.credentials
-
-    # image_url = extend_url.generate_signed_url(bucket_name, blob_name, credentials)
-
-    # video_url = 'https://www.youtube.com/watch?v=CwrvN0Q9_Sg'
+    APOD_COLUMN_NAMES_OUTPUT_ORDER = [
+        'date',
+        'title',
+        'explanation',
+        'copyright',
+    ]
 
     # constellations = [
     #     '牡羊座',
@@ -109,22 +112,6 @@ def handle_message(event):
     #     '雙魚座',
     # ]
 
-    query = """
-        SELECT *
-        FROM `my-project-tir102-bigquery.tir102_apod.tags`
-        ORDER BY `date`
-        LIMIT 10;
-    """
-
-    # text_message = TextMessage(text=user_input)
-    text_message = TextMessage(text=str(select_from_bigquery.query(query)))
-    # text_message = TextMessage(text=video_url)
-
-    # image_message = ImageMessage(
-    #     original_content_url=image_url,
-    #     preview_image_url=image_url,
-    # )
-
     # constellation_buttons = TextMessage(
     #     text='星座',
     #     quick_reply=QuickReply(
@@ -140,12 +127,53 @@ def handle_message(event):
     #     )
     # )
 
-    messages = [
-        text_message,
-        # image_message,
-        # constellation_buttons,
-    ]
-    
+    user_input = event.message.text
+    user_input = user_input.strip()
+    user_input = user_input.lower()
+
+    messages = []
+
+    date = check_date.check_date(user_input)
+
+    if not date:
+        text_message = '\n'.join([INVALID_DATE, DATE_USAGE])
+    elif not check_date.is_in_range(date):
+        text_message = f'{check_date.OLDEST} {DATE_OUT_OF_RANGE} {check_date.OLDEST}'
+    else:
+        # date is valid and in range
+        apod = select_from_bigquery.query_apod(date)
+
+        if apod.empty:
+            if date == check_date.today():
+                text_message = NO_DATA_TODAY
+            else:
+                # some dates have no data
+                text_message = f'{date} {NO_DATA_AT_DATE} {date}'
+        else:
+            # data found
+            text_message = []
+
+            for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
+                reformatted_column_name = reformat_column_name(column)
+                value = apod.loc[0][column]
+                text_message_new_line = f'{reformatted_column_name}: {value}'
+                text_message.append(text_message_new_line)
+
+            text_message = '\n'.join(text_message)
+
+            match apod.loc[0]['media_type']:
+                case 'image':
+                    image_message = reformatted_date_str_to_image_message(reformatted_date_str)
+                    messages.append(image_message)
+                case 'video':
+                    # videos cannot normally be directly downloaded from YouTube
+                    # but LINE automatically embeds YouTube videos by URL in text messages
+                    video_url = apod.loc[0]['URL']
+                    text_message = f'{text_message}\n{video_url}'
+
+    text_message = TextMessage(text=text_message)
+    messages.append(text_message)
+
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message_with_http_info(
@@ -154,6 +182,31 @@ def handle_message(event):
                 messages=messages,
             )
         )
+
+def reformat_column_name(column):
+    return (' '.join(column.split('_'))
+        .lower()
+        .capitalize()
+    )
+
+def date_to_image_message(date):
+    # images from GCS database are named by `yyyy-mm-dd` date format
+    bucket_name = 'tir102_apod'
+    blob_name = f'{date}.jpg'
+    credentials = extend_url.credentials
+
+    image_url = extend_url.generate_signed_url(
+        bucket_name,
+        blob_name,
+        credentials,
+    )
+
+    image_message = ImageMessage(
+        original_content_url=image_url,
+        preview_image_url=image_url,
+    )
+
+    return image_message
 
 if __name__ == "__main__":
     app.run()

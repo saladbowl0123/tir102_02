@@ -1,5 +1,7 @@
+db-dtypes
 flask
 functions-framework==3.*
 google-cloud-bigquery
 google-cloud-storage
 line-bot-sdk
+pandas
