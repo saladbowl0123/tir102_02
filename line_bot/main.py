@@ -163,7 +163,7 @@ def handle_message(event):
 
             match apod.loc[0]['media_type']:
                 case 'image':
-                    image_message = reformatted_date_str_to_image_message(reformatted_date_str)
+                    image_message = date_to_image_message(date)
                     messages.append(image_message)
                 case 'video':
                     # videos cannot normally be directly downloaded from YouTube
