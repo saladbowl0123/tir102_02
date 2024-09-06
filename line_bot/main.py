@@ -84,6 +84,8 @@ def callback(request):
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
+    BUTTONS_USAGE = '點選按鈕了解更多資訊 Tap a button to learn more\n向右滑動以查看更多按鈕 Scroll right for more buttons'
+
     INVALID_DATE = '日期無效 Invalid date'
     DATE_USAGE = '日期用法 Date usage: `yyyy-mm-dd`'
     DATE_OUT_OF_RANGE = '以前無資料 No data before'
@@ -97,81 +99,62 @@ def handle_message(event):
         'copyright',
     ]
 
-    # constellations = [
-    #     '牡羊座',
-    #     '金牛座',
-    #     '雙子座',
-    #     '巨蟹座',
-    #     '獅子座',
-    #     '處女座',
-    #     '天秤座',
-    #     '天蠍座',
-    #     '射手座',
-    #     '摩羯座',
-    #     '水瓶座',
-    #     '雙魚座',
-    # ]
-
-    # constellation_buttons = TextMessage(
-    #     text='星座',
-    #     quick_reply=QuickReply(
-    #         items=[
-    #             QuickReplyItem(
-    #                 action=MessageAction(
-    #                     label=c,
-    #                     text=c,
-    #                 )
-    #             )
-    #             for c in constellations
-    #         ]
-    #     )
-    # )
-
     user_input = event.message.text
     user_input = user_input.strip()
     user_input = user_input.lower()
 
     messages = []
 
-    date = check_date.check_date(user_input)
+    labels = None
 
-    if not date:
-        text_message = '\n'.join([INVALID_DATE, DATE_USAGE])
-    elif not check_date.is_in_range(date):
-        text_message = f'{check_date.OLDEST} {DATE_OUT_OF_RANGE} {check_date.OLDEST}'
+    if user_input.lower().islower():
+        # contains an English letter, so search for English tag
+        if user_input in ['planet', 'planets']:
+            text = BUTTONS_USAGE
+            labels = select_from_bigquery.query_planet_names()
+        elif user_input in ['constellation', 'constellations']:
+            text = BUTTONS_USAGE
+            labels = select_from_bigquery.query_constellation_names()
     else:
-        # date is valid and in range
-        apod = select_from_bigquery.query_apod(date)
+        date = check_date.check_date(user_input)
 
-        if apod.empty:
-            if date == check_date.today():
-                text_message = NO_DATA_TODAY
-            else:
-                # some dates have no data
-                text_message = f'{date} {NO_DATA_AT_DATE} {date}'
+        if not date:
+            text = '\n'.join([INVALID_DATE, DATE_USAGE])
+        elif not check_date.is_in_range(date):
+            text = f'{check_date.OLDEST} {DATE_OUT_OF_RANGE} {check_date.OLDEST}'
         else:
-            # data found
-            text_message = []
+            # date is valid and in range
+            apod = select_from_bigquery.query_apod(date)
 
-            for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
-                reformatted_column_name = reformat_column_name(column)
-                value = apod.loc[0][column]
-                text_message_new_line = f'{reformatted_column_name}: {value}'
-                text_message.append(text_message_new_line)
+            if apod.empty:
+                if date == check_date.today():
+                    text = NO_DATA_TODAY
+                else:
+                    # some dates have no data
+                    text = f'{date} {NO_DATA_AT_DATE} {date}'
+            else:
+                # data found
+                new_lines = []
 
-            text_message = '\n'.join(text_message)
+                for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
+                    reformatted_column_name = reformat_column_name(column)
+                    value = apod.loc[0][column]
+                    new_line = f'{reformatted_column_name}: {value}'
+                    new_lines.append(new_line)
 
-            match apod.loc[0]['media_type']:
-                case 'image':
-                    image_message = date_to_image_message(date)
-                    messages.append(image_message)
-                case 'video':
-                    # videos cannot normally be directly downloaded from YouTube
-                    # but LINE automatically embeds YouTube videos by URL in text messages
-                    video_url = apod.loc[0]['URL']
-                    text_message = f'{text_message}\n{video_url}'
+                text = '\n'.join(new_lines)
 
-    text_message = TextMessage(text=text_message)
+                match apod.loc[0]['media_type']:
+                    case 'image':
+                        image_message = date_to_image_message(date)
+                        messages.append(image_message)
+                    case 'video':
+                        # videos cannot normally be directly downloaded from YouTube
+                        # but LINE automatically embeds YouTube videos by URL in text messages
+                        video_url = apod.loc[0]['URL']
+                        text = f'{text}\n{video_url}'
+
+    text_message = text_to_text_message(text, labels)
     messages.append(text_message)
 
     with ApiClient(configuration) as api_client:
@@ -182,6 +165,27 @@ def handle_message(event):
                 messages=messages,
             )
         )
+
+def text_to_text_message(text, labels=None):
+    if labels:
+        text_message = TextMessage(
+            text=text,
+            quick_reply=QuickReply(
+                items=[
+                    QuickReplyItem(
+                        action=MessageAction(
+                            label=label,
+                            text=label,
+                        )
+                    )
+                    for label in labels
+                ]
+            )
+        )
+    else:
+        text_message = TextMessage(text=text)
+
+    return text_message
 
 def reformat_column_name(column):
     return (' '.join(column.split('_'))
