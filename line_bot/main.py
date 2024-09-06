@@ -120,6 +120,19 @@ def handle_message(event):
             text_list.append(BUTTONS_USAGE)
             constellation_names = select_from_bigquery.query_constellation_names()
             labels = [constellation.title() for constellation in constellation_names]
+        elif user_input in ['satellite', 'satellites']:
+            # TODO
+            pass
+        elif user_input in ['comet', 'comets']:
+            comets = select_from_bigquery.query_comets()
+            comets_describe = comets.describe()
+            df_text = reformat_describe_df(comets_describe)
+            text_list.append(df_text)
+        elif user_input in ['shower', 'showers']:
+            showers = select_from_bigquery.query_showers()
+            showers_describe = showers.describe()
+            df_text = reformat_describe_df(showers_describe)
+            text_list.append(df_text)
         else:
             # get random image or video corresponding to tag if possible
             dates = select_from_bigquery.query_english_tag(user_input)
@@ -152,6 +165,23 @@ def handle_message(event):
             elif user_input in [constellation_name.lower() for constellation_name in select_from_bigquery.query_constellation_names()]:
                 constellation = select_from_bigquery.query_constellation(user_input)
                 df_text = df_to_text(constellation)
+                text_list.append(df_text)
+            # TODO: satellites
+            # elif user_input in [satellite_name.lower() for satellite_name in select_from_bigquery.query_satellite_names()]:
+            #     satellite = select_from_bigquery.query_satellite(user_input)
+            #     df_text = df_to_text(satellite)
+            #     text_list.append(df_text)
+            elif user_input in [comet_name.lower() for comet_name in select_from_bigquery.query_comet_names()]:
+                comet = select_from_bigquery.query_comet(user_input)
+                df_text = df_to_text(comet)
+                text_list.append(df_text)
+            elif user_input in [shower_name.lower() for shower_name in select_from_bigquery.query_shower_names()]:
+                shower = select_from_bigquery.query_shower(user_input)
+                df_text = df_to_text(shower)
+                text_list.append(df_text)
+            elif user_input == 'sun':
+                sun = select_from_bigquery.query_sun()
+                df_text = df_to_text(sun)
                 text_list.append(df_text)
     else:
         date = check_date.check_date(user_input)
@@ -248,6 +278,22 @@ def df_to_text(df, output_order=None):
     text = '\n'.join(text_list)
 
     return text
+
+def reformat_describe_df(df):
+    index = df.index
+    columns = df.columns
+
+    index = dict(zip(index, [reformat_column_name(i) for i in index]))
+    columns = dict(zip(columns, [reformat_column_name(c) for c in columns]))
+
+    df = df.rename(
+        index=index,
+        columns=columns,
+    )
+
+    df_text = df.to_string()
+
+    return df_text
 
 def date_to_image_message(date):
     # images from GCS database are named by `yyyy-mm-dd` date format
