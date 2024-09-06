@@ -29,6 +29,7 @@ import extend_url
 import select_from_bigquery
 import os
 import json
+import random
 
 from linebot.v3 import (
     WebhookHandler
@@ -105,44 +106,34 @@ def handle_message(event):
 
     messages = []
 
+    text_list = []
+
     labels = None
 
     if user_input.lower().islower():
         # contains an English letter, so search for English tag
         if user_input in ['planet', 'planets']:
-            text = BUTTONS_USAGE
-            labels = select_from_bigquery.query_planet_names()
+            text_list.append(BUTTONS_USAGE)
+            planet_names = select_from_bigquery.query_planet_names()
+            labels = [planet.title() for planet in planet_names]
         elif user_input in ['constellation', 'constellations']:
-            text = BUTTONS_USAGE
-            labels = select_from_bigquery.query_constellation_names()
-    else:
-        date = check_date.check_date(user_input)
-
-        if not date:
-            text = '\n'.join([INVALID_DATE, DATE_USAGE])
-        elif not check_date.is_in_range(date):
-            text = f'{check_date.OLDEST} {DATE_OUT_OF_RANGE} {check_date.OLDEST}'
+            text_list.append(BUTTONS_USAGE)
+            constellation_names = select_from_bigquery.query_constellation_names()
+            labels = [constellation.title() for constellation in constellation_names]
         else:
-            # date is valid and in range
-            apod = select_from_bigquery.query_apod(date)
+            # get random image or video corresponding to tag if possible
+            dates = select_from_bigquery.query_english_tag(user_input)
 
-            if apod.empty:
-                if date == check_date.today():
-                    text = NO_DATA_TODAY
-                else:
-                    # some dates have no data
-                    text = f'{date} {NO_DATA_AT_DATE} {date}'
-            else:
-                # data found
-                new_lines = []
+            if dates:
+                date = random.choice(dates)
+                apod = select_from_bigquery.query_apod(date)
 
                 for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
-                    reformatted_column_name = reformat_column_name(column)
-                    value = apod.loc[0][column]
-                    new_line = f'{reformatted_column_name}: {value}'
-                    new_lines.append(new_line)
-
-                text = '\n'.join(new_lines)
+                    if column != 'explanation':
+                        reformatted_column_name = reformat_column_name(column)
+                        value = apod.loc[0][column] # TODO
+                        new_line = f'{reformatted_column_name}: {value}'
+                        text_list.append(new_line)
 
                 match apod.loc[0]['media_type']:
                     case 'image':
@@ -152,8 +143,53 @@ def handle_message(event):
                         # videos cannot normally be directly downloaded from YouTube
                         # but LINE automatically embeds YouTube videos by URL in text messages
                         video_url = apod.loc[0]['URL']
-                        text = f'{text}\n{video_url}'
+                        text_list.append(video_url)
 
+            if user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
+                planet = select_from_bigquery.query_planet(user_input)
+                df_text = df_to_text(planet)
+                text_list.append(df_text)
+            elif user_input in [constellation_name.lower() for constellation_name in select_from_bigquery.query_constellation_names()]:
+                constellation = select_from_bigquery.query_constellation(user_input)
+                df_text = df_to_text(constellation)
+                text_list.append(df_text)
+    else:
+        date = check_date.check_date(user_input)
+
+        if not date:
+            text_list.append(INVALID_DATE)
+            text_list.append(DATE_USAGE)
+        elif not check_date.is_in_range(date):
+            text_list.append(f'{check_date.OLDEST} {DATE_OUT_OF_RANGE} {check_date.OLDEST}')
+        else:
+            # date is valid and in range
+            apod = select_from_bigquery.query_apod(date)
+
+            if apod.empty:
+                if date == check_date.today():
+                    text_list.append(NO_DATA_TODAY)
+                else:
+                    # some dates have no data
+                    text_list.append(f'{date} {NO_DATA_AT_DATE} {date}')
+            else:
+                # data found
+                for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
+                    reformatted_column_name = reformat_column_name(column)
+                    value = apod.loc[0][column]
+                    new_line = f'{reformatted_column_name}: {value}'
+                    text_list.append(new_line)
+
+                match apod.loc[0]['media_type']:
+                    case 'image':
+                        image_message = date_to_image_message(date)
+                        messages.append(image_message)
+                    case 'video':
+                        # videos cannot normally be directly downloaded from YouTube
+                        # but LINE automatically embeds YouTube videos by URL in text messages
+                        video_url = apod.loc[0]['URL']
+                        text_list.append(video_url)
+
+    text = '\n'.join(text_list)
     text_message = text_to_text_message(text, labels)
     messages.append(text_message)
 
@@ -170,6 +206,7 @@ def text_to_text_message(text, labels=None):
     if labels:
         text_message = TextMessage(
             text=text,
+            # construct buttons
             quick_reply=QuickReply(
                 items=[
                     QuickReplyItem(
@@ -192,6 +229,25 @@ def reformat_column_name(column):
         .lower()
         .capitalize()
     )
+
+def df_to_text(df, output_order=None):
+    text_list = []
+
+    if not output_order:
+        output_order = df.columns
+
+    for column in output_order:
+        reformatted_column_name = reformat_column_name(column)
+        value = df.loc[0][column]
+        if column in ['Start_date', 'End_date']:
+            # show only `mm-dd` from constellation date period
+            value = value.strftime('%m-%d')
+        new_line = f'{reformatted_column_name}: {value}'
+        text_list.append(new_line)
+
+    text = '\n'.join(text_list)
+
+    return text
 
 def date_to_image_message(date):
     # images from GCS database are named by `yyyy-mm-dd` date format
