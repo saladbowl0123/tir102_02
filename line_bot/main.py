@@ -107,7 +107,6 @@ def handle_message(event):
     APOD_COLUMN_NAMES_OUTPUT_ORDER = [
         'date',
         'title',
-        'explanation',
         'copyright',
     ]
 
@@ -118,7 +117,6 @@ def handle_message(event):
     search_celestial_bodies = False
     random_date = False
     english_tag_to_dates = False
-    omit_explanation = False
 
     user_input = event.message.text
     user_input = user_input.strip()
@@ -181,9 +179,7 @@ def handle_message(event):
                 df_text = reformat_describe_df(showers_describe)
                 text_list.append(df_text)
             else:
-                # output too wordy with both database celestial body data and APoD explanation
                 english_tag_to_dates = True
-                omit_explanation = True
                 if user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
                     planet = select_from_bigquery.query_planet(user_input)
                     df_text = df_to_text(planet)
@@ -208,8 +204,6 @@ def handle_message(event):
                     sun = select_from_bigquery.query_sun()
                     df_text = df_to_text(sun)
                     text_list.append(df_text)
-                else:
-                    omit_explanation = False
 
             if english_tag_to_dates:
                 dates = select_from_bigquery.query_english_tag(user_input)
@@ -234,11 +228,10 @@ def handle_message(event):
             else:
                 # APoD data found; parse it as text
                 for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
-                    if (not omit_explanation) or column != 'explanation':
-                        reformatted_column_name = reformat_column_name(column)
-                        value = apod.loc[0][column]
-                        new_line = f'{reformatted_column_name}: {value}'
-                        text_list.append(new_line)
+                    reformatted_column_name = reformat_column_name(column)
+                    value = apod.loc[0][column]
+                    new_line = f'{reformatted_column_name}: {value}'
+                    text_list.append(new_line)
 
                 match apod.loc[0]['media_type']:
                     case 'image':

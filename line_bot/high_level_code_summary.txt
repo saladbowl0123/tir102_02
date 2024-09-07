@@ -31,7 +31,6 @@ else:
 			english_tag_to_dates = true
 			if input is name of specific celestial body:
 				output row
-				omit_explanation = true
 
 		if english_tag_to_dates:
 			dates = SELECT date FROM tags WHERE input == English tag
@@ -49,8 +48,6 @@ else:
 		if apod empty:
 			output appropriately
 		else:
-			if omit_explanation:
-				omit apod explanation from output
 			output apod
 
 output appropriately
