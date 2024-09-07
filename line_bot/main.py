@@ -109,10 +109,12 @@ def handle_message(event):
     process_date = False
     search_celestial_bodies = False
     random_date = False
+    english_tag_to_dates = False
     omit_explanation = False
 
     user_input = event.message.text
     user_input = user_input.strip()
+    user_input = user_input.lower()
 
     dates = []
     text_list = []
@@ -131,20 +133,17 @@ def handle_message(event):
     elif detect_language.chinese_like(user_input):
         if user_input in chinese_to_english:
             user_input = chinese_to_english[user_input]
-            user_input = user_input.lower()
             search_celestial_bodies = True
         else:
             dates = select_from_bigquery.query_chinese_tag(user_input)
             random_date = bool(dates)
     elif detect_language.english_like(user_input):
-        user_input = user_input.lower()
         search_celestial_bodies = True
     elif detect_language.other_like(user_input):
         text_list.append(LANGUAGE_NOT_SUPPORTED)
 
     if search_celestial_bodies:
         # output too wordy with both database celestial body data and APoD explanation
-        omit_explanation = True
         if user_input in ['planet', 'planets']:
             text_list.append(BUTTONS_USAGE)
             planet_names = select_from_bigquery.query_planet_names()
@@ -154,8 +153,10 @@ def handle_message(event):
             constellation_names = select_from_bigquery.query_constellation_names()
             labels = [constellation.title() for constellation in constellation_names]
         elif user_input in ['satellite', 'satellites']:
-            # TODO
-            pass
+            satellites = select_from_bigquery.query_satellites()
+            satellites_describe = satellites.describe()
+            df_text = reformat_describe_df(satellites_describe)
+            text_list.append(df_text)
         elif user_input in ['comet', 'comets']:
             comets = select_from_bigquery.query_comets()
             comets_describe = comets.describe()
@@ -166,35 +167,37 @@ def handle_message(event):
             showers_describe = showers.describe()
             df_text = reformat_describe_df(showers_describe)
             text_list.append(df_text)
-        elif user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
-            planet = select_from_bigquery.query_planet(user_input)
-            df_text = df_to_text(planet)
-            text_list.append(df_text)
-        elif user_input in [constellation_name.lower() for constellation_name in select_from_bigquery.query_constellation_names()]:
-            constellation = select_from_bigquery.query_constellation(user_input)
-            df_text = df_to_text(constellation)
-            text_list.append(df_text)
-        # TODO: satellites
-        # elif user_input in [satellite_name.lower() for satellite_name in select_from_bigquery.query_satellite_names()]:
-        #     satellite = select_from_bigquery.query_satellite(user_input)
-        #     df_text = df_to_text(satellite)
-        #     text_list.append(df_text)
-        elif user_input in [comet_name.lower() for comet_name in select_from_bigquery.query_comet_names()]:
-            comet = select_from_bigquery.query_comet(user_input)
-            df_text = df_to_text(comet)
-            text_list.append(df_text)
-        elif user_input in [shower_name.lower() for shower_name in select_from_bigquery.query_shower_names()]:
-            shower = select_from_bigquery.query_shower(user_input)
-            df_text = df_to_text(shower)
-            text_list.append(df_text)
-        elif user_input == 'sun':
-            sun = select_from_bigquery.query_sun()
-            df_text = df_to_text(sun)
-            text_list.append(df_text)
         else:
-            omit_explanation = False
+            english_tag_to_dates = True
+            omit_explanation = True
+            if user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
+                planet = select_from_bigquery.query_planet(user_input)
+                df_text = df_to_text(planet)
+                text_list.append(df_text)
+            elif user_input in [constellation_name.lower() for constellation_name in select_from_bigquery.query_constellation_names()]:
+                constellation = select_from_bigquery.query_constellation(user_input)
+                df_text = df_to_text(constellation)
+                text_list.append(df_text)
+            elif user_input in [satellite_name.lower() for satellite_name in select_from_bigquery.query_satellite_names()]:
+                satellite = select_from_bigquery.query_satellite(user_input)
+                df_text = df_to_text(satellite)
+                text_list.append(df_text)
+            elif user_input in [comet_name.lower() for comet_name in select_from_bigquery.query_comet_names()]:
+                comet = select_from_bigquery.query_comet(user_input)
+                df_text = df_to_text(comet)
+                text_list.append(df_text)
+            elif user_input in [shower_name.lower() for shower_name in select_from_bigquery.query_shower_names()]:
+                shower = select_from_bigquery.query_shower(user_input)
+                df_text = df_to_text(shower)
+                text_list.append(df_text)
+            elif user_input == 'sun':
+                sun = select_from_bigquery.query_sun()
+                df_text = df_to_text(sun)
+                text_list.append(df_text)
+            else:
+                omit_explanation = False
 
-        if not labels:
+        if english_tag_to_dates:
             dates = select_from_bigquery.query_english_tag(user_input)
             random_date = bool(dates)
 

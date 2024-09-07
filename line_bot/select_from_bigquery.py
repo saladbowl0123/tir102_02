@@ -5,6 +5,7 @@ BQ_PROJECT = 'my-project-tir102-bigquery'
 BQ_DB = 'tir102_apod'
 BQ_TABLE_PLANET = 'Planet'
 BQ_TABLE_CONSTELLATION = 'Constellation'
+BQ_TABLE_SATELLITE = 'UpdateSatellite'
 BQ_TABLE_COMET = 'Comet'
 BQ_TABLE_SHOWER = 'Showers2024'
 BQ_TABLE_SUN = 'SUN'
@@ -16,6 +17,7 @@ COLUMN_NAME_NAME = 'NAME'
 COLUMN_NAME_PLANET_ID = 'Planet_ID'
 COLUMN_NAME_CONSTELLATION_NAME = 'Constellation_Name'
 COLUMN_NAME_COMET_ID = 'Comet_ID'
+COLUMN_NAME_NAME_TITLE = 'Name'
 COLUMN_NAME_SHOWER = 'Shower'
 COLUMN_NAME_START_DATE = 'Start_date'
 COLUMN_NAME_DATE = 'date'
@@ -87,6 +89,17 @@ def query_constellation_names():
 
     return data
 
+def query_satellites():
+    query_satellites_data = f"""
+        SELECT *
+        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_SATELLITE};
+    """
+
+    rows = query(query_satellites_data)
+    df = row_iterator_to_df(rows)
+
+    return df
+
 def query_comets():
     query_comets_data = f"""
         SELECT *
@@ -108,6 +121,18 @@ def query_showers():
     df = row_iterator_to_df(rows)
 
     return df
+
+def query_satellite_names():
+    query_satellite_names_data = f"""
+        SELECT {COLUMN_NAME_NAME_TITLE}
+        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_SATELLITE};
+    """
+
+    rows = query(query_satellite_names_data)
+
+    data = [list(row)[0].lower() for row in rows]
+
+    return data
 
 def query_comet_names():
     query_comet_names_data = f"""
@@ -156,6 +181,18 @@ def query_constellation(constellation_name):
     """
 
     rows = query(query_constellation_data)
+    df = row_iterator_to_df(rows)
+
+    return df
+
+def query_satellite(satellite_name):
+    query_satellite_data = f"""
+        SELECT *
+        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_SATELLITE}
+        WHERE LOWER({COLUMN_NAME_NAME_TITLE}) = LOWER('{satellite_name}');
+    """
+
+    rows = query(query_satellite_data)
     df = row_iterator_to_df(rows)
 
     return df
