@@ -24,6 +24,7 @@ Entry point: callback
 
 import functions_framework
 from flask import Flask, request, abort
+import detect_language
 import check_date
 import extend_url
 import select_from_bigquery
@@ -85,6 +86,8 @@ def callback(request):
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
+    LANGUAGE_NOT_SUPPORTED = '不支援此語言 Language not supported'
+
     BUTTONS_USAGE = '點選按鈕了解更多資訊 Tap a button to learn more\n向右滑動以查看更多按鈕 Scroll right for more buttons'
 
     INVALID_DATE = '日期無效 Invalid date'
@@ -100,18 +103,48 @@ def handle_message(event):
         'copyright',
     ]
 
+    with open(os.path.join(os.path.dirname(__file__), 'chinese_to_english.json')) as f:
+        chinese_to_english = json.load(f)
+
+    process_date = False
+    search_celestial_bodies = False
+    random_date = False
+    omit_explanation = False
+
     user_input = event.message.text
     user_input = user_input.strip()
-    user_input = user_input.lower()
 
+    dates = []
+    text_list = []
     messages = []
 
-    text_list = []
-
+    image_message = None
     labels = None
 
-    if user_input.lower().islower():
-        # contains an English letter, so search for English tag
+    date = check_date.check_date(user_input)
+
+    if date:
+        if check_date.is_in_range(date):
+            process_date = True
+        else:
+            text_list.append(f'{check_date.OLDEST} {DATE_OUT_OF_RANGE} {check_date.OLDEST}')
+    elif detect_language.chinese_like(user_input):
+        if user_input in chinese_to_english:
+            user_input = chinese_to_english[user_input]
+            user_input = user_input.lower()
+            search_celestial_bodies = True
+        else:
+            dates = select_from_bigquery.query_chinese_tag(user_input)
+            random_date = bool(dates)
+    elif detect_language.english_like(user_input):
+        user_input = user_input.lower()
+        search_celestial_bodies = True
+    elif detect_language.other_like(user_input):
+        text_list.append(LANGUAGE_NOT_SUPPORTED)
+
+    if search_celestial_bodies:
+        # output too wordy with both database celestial body data and APoD explanation
+        omit_explanation = True
         if user_input in ['planet', 'planets']:
             text_list.append(BUTTONS_USAGE)
             planet_names = select_from_bigquery.query_planet_names()
@@ -133,95 +166,77 @@ def handle_message(event):
             showers_describe = showers.describe()
             df_text = reformat_describe_df(showers_describe)
             text_list.append(df_text)
+        elif user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
+            planet = select_from_bigquery.query_planet(user_input)
+            df_text = df_to_text(planet)
+            text_list.append(df_text)
+        elif user_input in [constellation_name.lower() for constellation_name in select_from_bigquery.query_constellation_names()]:
+            constellation = select_from_bigquery.query_constellation(user_input)
+            df_text = df_to_text(constellation)
+            text_list.append(df_text)
+        # TODO: satellites
+        # elif user_input in [satellite_name.lower() for satellite_name in select_from_bigquery.query_satellite_names()]:
+        #     satellite = select_from_bigquery.query_satellite(user_input)
+        #     df_text = df_to_text(satellite)
+        #     text_list.append(df_text)
+        elif user_input in [comet_name.lower() for comet_name in select_from_bigquery.query_comet_names()]:
+            comet = select_from_bigquery.query_comet(user_input)
+            df_text = df_to_text(comet)
+            text_list.append(df_text)
+        elif user_input in [shower_name.lower() for shower_name in select_from_bigquery.query_shower_names()]:
+            shower = select_from_bigquery.query_shower(user_input)
+            df_text = df_to_text(shower)
+            text_list.append(df_text)
+        elif user_input == 'sun':
+            sun = select_from_bigquery.query_sun()
+            df_text = df_to_text(sun)
+            text_list.append(df_text)
         else:
-            # get random image or video corresponding to tag if possible
+            omit_explanation = False
+
+        if not labels:
             dates = select_from_bigquery.query_english_tag(user_input)
+            random_date = bool(dates)
 
-            if dates:
-                date = random.choice(dates)
-                apod = select_from_bigquery.query_apod(date)
+    if random_date:
+        # get random image or video corresponding to tag if possible
+        date = random.choice(dates)
+        process_date = True
 
-                for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
-                    if column != 'explanation':
-                        reformatted_column_name = reformat_column_name(column)
-                        value = apod.loc[0][column] # TODO
-                        new_line = f'{reformatted_column_name}: {value}'
-                        text_list.append(new_line)
+    if process_date:
+        apod = select_from_bigquery.query_apod(date)
 
-                match apod.loc[0]['media_type']:
-                    case 'image':
-                        image_message = date_to_image_message(date)
-                        messages.append(image_message)
-                    case 'video':
-                        # videos cannot normally be directly downloaded from YouTube
-                        # but LINE automatically embeds YouTube videos by URL in text messages
-                        video_url = apod.loc[0]['URL']
-                        text_list.append(video_url)
-
-            if user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
-                planet = select_from_bigquery.query_planet(user_input)
-                df_text = df_to_text(planet)
-                text_list.append(df_text)
-            elif user_input in [constellation_name.lower() for constellation_name in select_from_bigquery.query_constellation_names()]:
-                constellation = select_from_bigquery.query_constellation(user_input)
-                df_text = df_to_text(constellation)
-                text_list.append(df_text)
-            # TODO: satellites
-            # elif user_input in [satellite_name.lower() for satellite_name in select_from_bigquery.query_satellite_names()]:
-            #     satellite = select_from_bigquery.query_satellite(user_input)
-            #     df_text = df_to_text(satellite)
-            #     text_list.append(df_text)
-            elif user_input in [comet_name.lower() for comet_name in select_from_bigquery.query_comet_names()]:
-                comet = select_from_bigquery.query_comet(user_input)
-                df_text = df_to_text(comet)
-                text_list.append(df_text)
-            elif user_input in [shower_name.lower() for shower_name in select_from_bigquery.query_shower_names()]:
-                shower = select_from_bigquery.query_shower(user_input)
-                df_text = df_to_text(shower)
-                text_list.append(df_text)
-            elif user_input == 'sun':
-                sun = select_from_bigquery.query_sun()
-                df_text = df_to_text(sun)
-                text_list.append(df_text)
-    else:
-        date = check_date.check_date(user_input)
-
-        if not date:
-            text_list.append(INVALID_DATE)
-            text_list.append(DATE_USAGE)
-        elif not check_date.is_in_range(date):
-            text_list.append(f'{check_date.OLDEST} {DATE_OUT_OF_RANGE} {check_date.OLDEST}')
-        else:
-            # date is valid and in range
-            apod = select_from_bigquery.query_apod(date)
-
-            if apod.empty:
-                if date == check_date.today():
-                    text_list.append(NO_DATA_TODAY)
-                else:
-                    # some dates have no data
-                    text_list.append(f'{date} {NO_DATA_AT_DATE} {date}')
+        if apod.empty:
+            if date == check_date.today():
+                text_list.append(NO_DATA_TODAY)
             else:
-                # data found
-                for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
+                # some dates have no data
+                text_list.append(f'{date} {NO_DATA_AT_DATE} {date}')
+        else:
+            # APoD data found; parse it as text
+            for column in APOD_COLUMN_NAMES_OUTPUT_ORDER:
+                if (not omit_explanation) or column != 'explanation':
                     reformatted_column_name = reformat_column_name(column)
                     value = apod.loc[0][column]
                     new_line = f'{reformatted_column_name}: {value}'
                     text_list.append(new_line)
 
-                match apod.loc[0]['media_type']:
-                    case 'image':
-                        image_message = date_to_image_message(date)
-                        messages.append(image_message)
-                    case 'video':
-                        # videos cannot normally be directly downloaded from YouTube
-                        # but LINE automatically embeds YouTube videos by URL in text messages
-                        video_url = apod.loc[0]['URL']
-                        text_list.append(video_url)
+            match apod.loc[0]['media_type']:
+                case 'image':
+                    image_message = date_to_image_message(date)
+                case 'video':
+                    # only images are stored in GCS and not videos
+                    # because videos cannot normally be directly downloaded from YouTube
+                    # but LINE automatically embeds YouTube videos by URL in text messages
+                    video_url = apod.loc[0]['URL']
+                    text_list.append(video_url)
 
     text = '\n'.join(text_list)
     text_message = text_to_text_message(text, labels)
     messages.append(text_message)
+
+    if image_message:
+        messages.append(image_message)
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)

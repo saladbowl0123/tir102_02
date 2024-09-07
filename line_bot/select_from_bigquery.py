@@ -10,6 +10,7 @@ BQ_TABLE_SHOWER = 'Showers2024'
 BQ_TABLE_SUN = 'SUN'
 BQ_TABLE_APOD = 'apod'
 BQ_TABLE_TAGS = 'tags'
+COLUMN_NAME_CHINESE_TAGS = 'tags_zhTW'
 COLUMN_NAME_ENGLISH_TAGS = 'tags_en'
 COLUMN_NAME_NAME = 'NAME'
 COLUMN_NAME_PLANET_ID = 'Planet_ID'
@@ -26,13 +27,26 @@ def query(query):
 
 # RowIterator.to_dataframe() uses too much memory:
 # https://github.com/googleapis/google-cloud-python/issues/7293
-
 def row_iterator_to_df(rows):
     data = [list(row) for row in rows]
     columns = [field.name for field in rows.schema]
     df = pd.DataFrame(data=data, columns=columns)
 
     return df
+
+def query_chinese_tag(chinese_tag):
+    query_chinese_tag_data = f"""
+        SELECT {COLUMN_NAME_DATE}
+        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_TAGS}
+        WHERE LOWER({COLUMN_NAME_CHINESE_TAGS}) = LOWER('{chinese_tag}');
+    """
+    # LOWER() is used because some Chinese tags contain English letters
+
+    rows = query(query_chinese_tag_data)
+
+    data = [list(row)[0] for row in rows]
+
+    return data
 
 def query_english_tag(english_tag):
     query_english_tag_data = f"""
