@@ -1,0 +1,56 @@
+**High-level code summary**
+
+if input is 'help':
+	output buttons
+else:
+	if input is a date:
+		if date is in range:
+			process_date = true
+		else:
+			output appropriately
+	else if input is Chinese:
+		if input in preset Chinese words:
+			translate input to English
+			parse input as English
+			search_celestial_bodies = true
+		else:
+			dates = SELECT date FROM tags WHERE input == Chinese tag
+			random_date = true if dates not empty
+			if not random_date:
+				output appropriately
+
+	else if input is English:
+		search_celestial_bodies = true
+
+	if search_celestial_bodies:
+		if input in ['planet', 'constellation']:
+			output buttons
+		else if input in ['satellite', 'comet', 'shower']:
+			output pandas describe table
+		else:
+			english_tag_to_dates = true
+			if input is name of specific celestial body:
+				output row
+				omit_explanation = true
+
+		if english_tag_to_dates:
+			dates = SELECT date FROM tags WHERE input == English tag
+			random_date = true if dates not empty
+			if not random_date:
+				output appropriately
+
+	if random_date:
+		date = random choice from dates
+		process_date = true
+
+	if process_date:
+		apod = SELECT * FROM apod WHERE date == date
+
+		if apod empty:
+			output appropriately
+		else:
+			if omit_explanation:
+				omit apod explanation from output
+			output apod
+
+output appropriately
