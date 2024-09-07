@@ -87,7 +87,7 @@ def callback(request):
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     BUTTONS_USAGE = '點選按鍵了解更多資訊 Tap a button to learn more\n向右滑動以查看更多按鍵 Scroll right for more buttons'
-    USAGE = '用法 Usage:\n- 中文關鍵詞\n- English keyword\n- 日期用法 Date usage: `yyyy-mm-dd`\n{BUTTONS_USAGE}'
+    USAGE = f'用法 Usage:\n- 中文關鍵詞\n- English keyword\n- 日期用法 Date usage: `yyyy-mm-dd`\n{BUTTONS_USAGE}'
 
     DATE_OUT_OF_RANGE = '以前無資料 No data before'
     LANGUAGE_NOT_SUPPORTED = '不支援此語言 Language not supported'
