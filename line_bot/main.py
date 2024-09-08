@@ -342,22 +342,6 @@ def df_to_text(df, output_order=None):
 
     return text
 
-def reformat_describe_df(df):
-    index = df.index
-    columns = df.columns
-
-    index = dict(zip(index, [reformat_column_name(i) for i in index]))
-    columns = dict(zip(columns, [reformat_column_name(c) for c in columns]))
-
-    df = df.rename(
-        index=index,
-        columns=columns,
-    )
-
-    df_text = df.to_string()
-
-    return df_text
-
 def date_to_image_message(date):
     # images from GCS database are named by `yyyy-mm-dd` date format
     bucket_name = 'tir102_apod'

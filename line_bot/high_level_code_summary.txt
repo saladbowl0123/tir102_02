@@ -25,10 +25,10 @@ else:
 	if search_celestial_bodies:
 		if input in ['planet', 'constellation']:
 			output buttons
-		else if input in ['satellite', 'comet', 'shower']:
-			output pandas describe table
 		else:
 			english_tag_to_dates = true
+			if input in ['satellite', 'comet', 'shower']:
+				output random row
 			if input is name of specific celestial body:
 				output row
 
