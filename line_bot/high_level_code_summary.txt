@@ -1,6 +1,6 @@
 **High-level code summary**
 
-if input is 'help':
+if input in USAGE_COMMANDS:
 	output buttons
 else:
 	if input is a date:

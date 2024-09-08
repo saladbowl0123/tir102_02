@@ -50,9 +50,56 @@ from linebot.v3.messaging import (
     MessageAction,
 )
 from linebot.v3.webhooks import (
+    FollowEvent,
     MessageEvent,
     TextMessageContent,
 )
+
+HELLO = '感謝加入好友! Thanks for adding as a friend!'
+BUTTONS_USAGE = '點選按鍵了解更多資訊 Tap a button to learn more\n向右滑動以查看更多按鍵 Scroll right for more buttons'
+DATE_OUT_OF_RANGE = '以前無資料 No data before'
+LANGUAGE_NOT_SUPPORTED = '不支援此語言 Language not supported'
+NO_DATA = '無資料 No data'
+NO_DATA_TODAY = '尚未獲得今日資料 Data not yet available for today'
+NO_DATA_AT_DATE = '無資料 No data at'
+
+USAGE_COMMANDS = [
+    '用法',
+    '說明',
+    'usage',
+    'manual',
+    'help',
+]
+
+USAGE_LABELS = [
+    'planet',
+    'constellation',
+    'satellite',
+    'comet',
+    'shower',
+    'sun',
+]
+
+APOD_COLUMN_NAMES_OUTPUT_ORDER = [
+    'date',
+    'title',
+    'copyright',
+]
+
+USAGE = '\n'.join(
+    [
+        '使用下列指令重新產生此訊息 regenerate this message with the following commands:',
+        ', '.join(f"'{command}'" for command in USAGE_COMMANDS),
+        '用法 Usage:',
+        '- 中文關鍵詞',
+        '- English keyword',
+        '- 日期用法 Date usage: `yyyy-mm-dd`',
+        BUTTONS_USAGE,
+    ]
+)
+
+with open(os.path.join(os.path.dirname(__file__), 'chinese_to_english.json')) as f:
+    chinese_to_english = json.load(f)
 
 app = Flask(__name__)
 
@@ -84,35 +131,24 @@ def callback(request):
 
     return 'OK'
 
+@handler.add(FollowEvent)
+def handle_follow(event):
+    text = f'{HELLO}\n{USAGE}'
+    labels = USAGE_LABELS
+    text_message = text_to_text_message(text, labels)
+    messages = [text_message]
+
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=messages,
+            )
+        )
+
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
-    BUTTONS_USAGE = '點選按鍵了解更多資訊 Tap a button to learn more\n向右滑動以查看更多按鍵 Scroll right for more buttons'
-    USAGE = f'用法 Usage:\n- 中文關鍵詞\n- English keyword\n- 日期用法 Date usage: `yyyy-mm-dd`\n{BUTTONS_USAGE}'
-
-    DATE_OUT_OF_RANGE = '以前無資料 No data before'
-    LANGUAGE_NOT_SUPPORTED = '不支援此語言 Language not supported'
-    NO_DATA = '無資料 No data'
-    NO_DATA_TODAY = '尚未獲得今日資料 Data not yet available for today'
-    NO_DATA_AT_DATE = '無資料 No data at'
-
-    HELP_LABELS = [
-        'planet',
-        'constellation',
-        'satellite',
-        'comet',
-        'shower',
-        'sun',
-    ]
-    
-    APOD_COLUMN_NAMES_OUTPUT_ORDER = [
-        'date',
-        'title',
-        'copyright',
-    ]
-
-    with open(os.path.join(os.path.dirname(__file__), 'chinese_to_english.json')) as f:
-        chinese_to_english = json.load(f)
-
     process_date = False
     search_celestial_bodies = False
     random_date = False
@@ -129,9 +165,9 @@ def handle_message(event):
     image_message = None
     labels = None
 
-    if user_input == 'help':
+    if user_input in USAGE_COMMANDS:
         text_list.append(USAGE)
-        labels = HELP_LABELS
+        labels = USAGE_LABELS
     else:
         date = check_date.check_date(user_input)
 
