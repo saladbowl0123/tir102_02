@@ -199,24 +199,24 @@ def handle_message(event):
                 text_list.append(BUTTONS_USAGE)
                 constellation_names = select_from_bigquery.query_constellation_names()
                 labels = [constellation.title() for constellation in constellation_names]
-            elif user_input in ['satellite', 'satellites']:
-                satellites = select_from_bigquery.query_satellites()
-                satellites_describe = satellites.describe()
-                df_text = reformat_describe_df(satellites_describe)
-                text_list.append(df_text)
-            elif user_input in ['comet', 'comets']:
-                comets = select_from_bigquery.query_comets()
-                comets_describe = comets.describe()
-                df_text = reformat_describe_df(comets_describe)
-                text_list.append(df_text)
-            elif user_input in ['shower', 'showers']:
-                showers = select_from_bigquery.query_showers()
-                showers_describe = showers.describe()
-                df_text = reformat_describe_df(showers_describe)
-                text_list.append(df_text)
             else:
                 english_tag_to_dates = True
-                if user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
+                if user_input in ['satellite', 'satellites']:
+                    satellite = select_from_bigquery.query_random_satellite()
+                    df_text = df_to_text(satellite)
+                    text_list.append(df_text)
+                    user_input = satellite.loc[0]['Name']
+                elif user_input in ['comet', 'comets']:
+                    comet = select_from_bigquery.query_random_comet()
+                    df_text = df_to_text(comet)
+                    text_list.append(df_text)
+                    user_input = comet.loc[0]['NAME']
+                elif user_input in ['shower', 'showers']:
+                    shower = select_from_bigquery.query_random_shower()
+                    df_text = df_to_text(shower)
+                    text_list.append(df_text)
+                    user_input = shower.loc[0]['Shower']
+                elif user_input in [planet_name.lower() for planet_name in select_from_bigquery.query_planet_names()]:
                     planet = select_from_bigquery.query_planet(user_input)
                     df_text = df_to_text(planet)
                     text_list.append(df_text)

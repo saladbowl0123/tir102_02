@@ -89,35 +89,41 @@ def query_constellation_names():
 
     return data
 
-def query_satellites():
-    query_satellites_data = f"""
+def query_random_satellite():
+    query_random_satellite_data = f"""
         SELECT *
-        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_SATELLITE};
+        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_SATELLITE}
+        ORDER BY RAND()
+        LIMIT 1;
     """
 
-    rows = query(query_satellites_data)
+    rows = query(query_random_satellite_data)
     df = row_iterator_to_df(rows)
 
     return df
 
-def query_comets():
-    query_comets_data = f"""
+def query_random_comet():
+    query_random_comet_data = f"""
         SELECT *
-        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_COMET};
+        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_COMET}
+        ORDER BY RAND()
+        LIMIT 1;
     """
 
-    rows = query(query_comets_data)
+    rows = query(query_random_comet_data)
     df = row_iterator_to_df(rows)
 
     return df
 
-def query_showers():
-    query_showers_data = f"""
+def query_random_shower():
+    query_random_shower_data = f"""
         SELECT *
-        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_SHOWER};
+        FROM {BQ_PROJECT}.{BQ_DB}.{BQ_TABLE_SHOWER}
+        ORDER BY RAND()
+        LIMIT 1;
     """
 
-    rows = query(query_showers_data)
+    rows = query(query_random_shower_data)
     df = row_iterator_to_df(rows)
 
     return df
